@@ -1,0 +1,13 @@
+# secrets
+.env
+.env.*
+
+# data
+*.db
+products.json
+
+# python
+__pycache__/
+*.pyc
+*.log
+.venv/
