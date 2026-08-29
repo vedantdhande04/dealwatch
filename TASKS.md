@@ -8,7 +8,7 @@
 - [ ] check all products in the config in one run
 - [ ] retry failed fetches with backoff
 - [ ] rotate a small set of user-agent headers
-- [ ] add a --dry-run flag
+- [x] add a --dry-run flag
 - [ ] print a price history table for a product
 - [ ] generate a simple HTML price chart from history
 - [ ] telegram bot: /start and /add <url> <target>
@@ -22,9 +22,9 @@
 - [ ] handle out-of-stock pages without crashing
 - [ ] add a .env.example with TELEGRAM_BOT_TOKEN
 - [ ] add a max-retries guard to avoid getting blocked
-- [ ] make fetch timeout configurable
+- [x] make fetch timeout configurable
 - [ ] add a CSV export of price history
-- [ ] add basic logging setup
+- [x] add basic logging setup
 - [ ] add a --once flag for a single check run
 - [ ] add a --add <url> <name> command to the CLI
 - [ ] dedupe duplicate URLs in the config
