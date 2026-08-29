@@ -25,6 +25,10 @@ def load_products() -> list[dict]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="dealwatch", description=__doc__)
     parser.add_argument(
+        "--timeout", type=int, default=None,
+        help="HTTP timeout in seconds (overrides per-product config)",
+    )
+    parser.add_argument(
         "--verbose", action="store_true", help="enable debug logging"
     )
     return parser
@@ -45,8 +49,9 @@ def main(argv: list[str] | None = None) -> int:
 
     for product in products:
         name = product.get("name", product["url"])
+        timeout = args.timeout or product.get("timeout") or DEFAULT_TIMEOUT
         try:
-            title, price = fetch_amazon_price(product["url"])
+            title, price = fetch_amazon_price(product["url"], timeout=timeout)
             print(f"{name}: {title} — ₹{price:,.0f}")
         except Exception as exc:  # noqa: BLE001 — report and move on
             logger.error("failed to fetch %s: %s", name, exc)
