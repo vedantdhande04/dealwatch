@@ -1,8 +1,11 @@
 """Fetch prices from Indian e-commerce product pages."""
 
+import logging
 import re
 
 import requests
+
+logger = logging.getLogger("dealwatch.fetcher")
 
 HEADERS = {
     "User-Agent": (
@@ -14,6 +17,7 @@ HEADERS = {
 
 def fetch_amazon_price(url: str, timeout: int = 15) -> tuple[str, float]:
     """Fetch the product title and current price (INR) from an Amazon.in URL."""
+    logger.debug("fetching %s (timeout=%ss)", url, timeout)
     resp = requests.get(url, headers=HEADERS, timeout=timeout)
     resp.raise_for_status()
 
