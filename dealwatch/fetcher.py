@@ -3,10 +3,14 @@
 import logging
 import random
 import re
+import time
 
 import requests
 
 logger = logging.getLogger("dealwatch.fetcher")
+
+MAX_RETRIES = 3
+BACKOFF_SECONDS = 1.0
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -24,11 +28,30 @@ def _headers() -> dict[str, str]:
     return {"User-Agent": random.choice(USER_AGENTS)}
 
 
+def _get_with_retry(url: str, timeout: int) -> requests.Response:
+    """GET a page, retrying transient failures with exponential backoff."""
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = requests.get(url, headers=_headers(), timeout=timeout)
+            resp.raise_for_status()
+            return resp
+        except requests.RequestException as exc:
+            last_error = exc
+            if attempt < MAX_RETRIES:
+                wait = BACKOFF_SECONDS * (2 ** (attempt - 1))
+                logger.warning(
+                    "request failed (%s), retrying in %.1fs (attempt %d/%d)",
+                    exc, wait, attempt, MAX_RETRIES,
+                )
+                time.sleep(wait)
+    raise last_error  # type: ignore[misc] — non-None when loop ends
+
+
 def fetch_amazon_price(url: str, timeout: int = 15) -> tuple[str, float]:
     """Fetch the product title and current price (INR) from an Amazon.in URL."""
     logger.debug("fetching %s (timeout=%ss)", url, timeout)
-    resp = requests.get(url, headers=_headers(), timeout=timeout)
-    resp.raise_for_status()
+    resp = _get_with_retry(url, timeout)
 
     title_match = re.search(
         r'<span id="productTitle"[^>]*>(.*?)</span>', resp.text, re.S
