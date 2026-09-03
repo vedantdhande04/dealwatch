@@ -1,13 +1,13 @@
 # TASKS.md — one small task per line, check off when done
 
 - [ ] add a Flipkart fetcher
-- [ ] store every check in SQLite (product, price, timestamp)
-- [ ] detect a price drop vs the last stored check
+- [x] store every check in SQLite (product, price, timestamp)
+- [x] detect a price drop vs the last stored check
 - [ ] support checking one product by URL on the CLI
 - [ ] add a config.json with the watched products list
 - [ ] check all products in the config in one run
-- [ ] retry failed fetches with backoff
-- [ ] rotate a small set of user-agent headers
+- [x] retry failed fetches with backoff
+- [x] rotate a small set of user-agent headers
 - [x] add a --dry-run flag
 - [ ] print a price history table for a product
 - [ ] generate a simple HTML price chart from history
