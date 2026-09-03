@@ -6,6 +6,7 @@ import logging
 import sys
 from pathlib import Path
 
+from dealwatch import db
 from dealwatch.fetcher import fetch_amazon_price
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "products.json.example"
@@ -33,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="HTTP timeout in seconds (overrides per-product config)",
     )
     parser.add_argument(
+        "--db", type=Path, default=None,
+        help="sqlite db path (default: dealwatch.db next to the package)",
+    )
+    parser.add_argument(
         "--verbose", action="store_true", help="enable debug logging"
     )
     return parser
@@ -51,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         print("no products in config")
         return 1
 
+    db_path = args.db or db.DEFAULT_DB
     for product in products:
         name = product.get("name", product["url"])
         if args.dry_run:
@@ -59,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
         timeout = args.timeout or product.get("timeout") or DEFAULT_TIMEOUT
         try:
             title, price = fetch_amazon_price(product["url"], timeout=timeout)
+            db.record_check(name, product["url"], title, price, db_path=db_path)
             print(f"{name}: {title} — ₹{price:,.0f}")
         except Exception as exc:  # noqa: BLE001 — report and move on
             logger.error("failed to fetch %s: %s", name, exc)
