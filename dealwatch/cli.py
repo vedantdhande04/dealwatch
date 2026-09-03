@@ -65,6 +65,10 @@ def main(argv: list[str] | None = None) -> int:
         timeout = args.timeout or product.get("timeout") or DEFAULT_TIMEOUT
         try:
             title, price = fetch_amazon_price(product["url"], timeout=timeout)
+            previous = db.last_price(product["url"], db_path=db_path)
+            if previous is not None and price < previous:
+                drop = (previous - price) / previous * 100
+                print(f"{name}: PRICE DROP — ₹{previous:,.0f} → ₹{price:,.0f} ({drop:.0f}% off)")
             db.record_check(name, product["url"], title, price, db_path=db_path)
             print(f"{name}: {title} — ₹{price:,.0f}")
         except Exception as exc:  # noqa: BLE001 — report and move on

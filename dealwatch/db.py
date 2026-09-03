@@ -25,6 +25,21 @@ def connect(db_path=DEFAULT_DB) -> sqlite3.Connection:
     return conn
 
 
+def last_price(
+    url: str, db_path: Path | str = DEFAULT_DB
+) -> float | None:
+    """Return the most recent stored price for a url, or None if never seen."""
+    conn = connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT price FROM checks WHERE url = ? ORDER BY id DESC LIMIT 1",
+            (url,),
+        ).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+
 def record_check(
     product: str,
     url: str,
