@@ -38,6 +38,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="sqlite db path (default: dealwatch.db next to the package)",
     )
     parser.add_argument(
+        "--url", default=None,
+        help="check a single product url instead of everything in the config",
+    )
+    parser.add_argument(
+        "--name", default=None,
+        help="product name to store for the --url check (default: the url)",
+    )
+    parser.add_argument(
         "--verbose", action="store_true", help="enable debug logging"
     )
     return parser
@@ -50,11 +58,14 @@ def main(argv: list[str] | None = None) -> int:
         format="%(levelname)s %(name)s: %(message)s",
     )
 
-    products = load_products()
-    if not products:
-        logger.warning("no products in config")
-        print("no products in config")
-        return 1
+    if args.url:
+        products = [{"name": args.name or args.url, "url": args.url}]
+    else:
+        products = load_products()
+        if not products:
+            logger.warning("no products in config")
+            print("no products in config")
+            return 1
 
     db_path = args.db or db.DEFAULT_DB
     failures = 0
