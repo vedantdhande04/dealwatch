@@ -62,3 +62,23 @@ def record_check(
         return cur.lastrowid
     finally:
         conn.close()
+
+
+def history(
+    term: str,
+    db_path: Path | str = DEFAULT_DB,
+    limit: int = 30,
+) -> list[sqlite3.Row]:
+    """Return the most recent checks for a product name or url fragment."""
+    conn = connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT product, url, title, price, checked_at FROM checks"
+            " WHERE product LIKE ? OR url LIKE ?"
+            " ORDER BY id DESC LIMIT ?",
+            (f"%{term}%", f"%{term}%", limit),
+        ).fetchall()
+        return list(reversed(rows))
+    finally:
+        conn.close()

@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from dealwatch import db
@@ -48,7 +49,37 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--verbose", action="store_true", help="enable debug logging"
     )
+
+    sub = parser.add_subparsers(dest="command", metavar="COMMAND")
+    history = sub.add_parser("history", help="print the price history of a product")
+    history.add_argument(
+        "product", help="product name or url fragment to look up"
+    )
+    history.add_argument(
+        "--limit", type=int, default=30,
+        help="max rows to show (default: 30)",
+    )
+    history.add_argument(
+        "--db", type=Path, default=argparse.SUPPRESS,
+        help="sqlite db path (default: dealwatch.db next to the package)",
+    )
     return parser
+
+
+def run_history(args: argparse.Namespace) -> int:
+    """Print a price history table for one product."""
+    db_path = args.db or db.DEFAULT_DB
+    rows = db.history(args.product, db_path=db_path, limit=args.limit)
+    if not rows:
+        print(f"no price history found for {args.product!r}")
+        return 1
+    print(f"{'product':<30} {'checked at':<22} {'price':>12}")
+    print("-" * 66)
+    for row in rows:
+        when = datetime.fromisoformat(row["checked_at"]).astimezone()
+        stamp = when.strftime("%Y-%m-%d %H:%M")
+        print(f"{row['product'][:29]:<30} {stamp:<22} {'₹' + format(row['price'], ',.0f'):>12}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -57,6 +88,9 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
     )
+
+    if args.command == "history":
+        return run_history(args)
 
     if args.url:
         products = [{"name": args.name or args.url, "url": args.url}]
