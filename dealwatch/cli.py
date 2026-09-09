@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from dealwatch import db
-from dealwatch.fetcher import fetch_amazon_price
+from dealwatch.fetcher import fetch_price
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "products.json.example"
 DEFAULT_TIMEOUT = 15
@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         timeout = args.timeout or product.get("timeout") or DEFAULT_TIMEOUT
         try:
-            title, price = fetch_amazon_price(product["url"], timeout=timeout)
+            title, price = fetch_price(product["url"], timeout=timeout)
             previous = db.last_price(product["url"], db_path=db_path)
             if previous is not None and price < previous:
                 drop = (previous - price) / previous * 100
