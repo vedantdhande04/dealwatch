@@ -1,15 +1,15 @@
 # TASKS.md — one small task per line, check off when done
 
-- [ ] add a Flipkart fetcher
+- [x] add a Flipkart fetcher
 - [x] store every check in SQLite (product, price, timestamp)
 - [x] detect a price drop vs the last stored check
-- [ ] support checking one product by URL on the CLI
+- [x] support checking one product by URL on the CLI
 - [ ] add a config.json with the watched products list
-- [ ] check all products in the config in one run
+- [x] check all products in the config in one run
 - [x] retry failed fetches with backoff
 - [x] rotate a small set of user-agent headers
 - [x] add a --dry-run flag
-- [ ] print a price history table for a product
+- [x] print a price history table for a product
 - [ ] generate a simple HTML price chart from history
 - [ ] telegram bot: /start and /add <url> <target>
 - [ ] telegram bot: alert message when a target price is hit
@@ -19,11 +19,11 @@
 - [ ] schedule checks with a simple loop, no cron needed
 - [ ] add tests for the amazon price parser
 - [ ] add tests for the flipkart price parser
-- [ ] handle out-of-stock pages without crashing
+- [x] handle out-of-stock pages without crashing
 - [ ] add a .env.example with TELEGRAM_BOT_TOKEN
 - [ ] add a max-retries guard to avoid getting blocked
 - [x] make fetch timeout configurable
-- [ ] add a CSV export of price history
+- [x] add a CSV export of price history
 - [x] add basic logging setup
 - [ ] add a --once flag for a single check run
 - [ ] add a --add <url> <name> command to the CLI
