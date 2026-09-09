@@ -1,6 +1,7 @@
 """dealwatch CLI — check watched products and print current prices."""
 
 import argparse
+import csv
 import json
 import logging
 import sys
@@ -60,6 +61,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="max rows to show (default: 30)",
     )
     history.add_argument(
+        "--csv", type=Path, default=None,
+        help="write the history to this csv file instead of a table",
+    )
+    history.add_argument(
         "--db", type=Path, default=argparse.SUPPRESS,
         help="sqlite db path (default: dealwatch.db next to the package)",
     )
@@ -73,6 +78,17 @@ def run_history(args: argparse.Namespace) -> int:
     if not rows:
         print(f"no price history found for {args.product!r}")
         return 1
+    if args.csv:
+        with open(args.csv, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["product", "url", "title", "price", "checked_at"])
+            for row in rows:
+                writer.writerow([
+                    row["product"], row["url"], row["title"],
+                    row["price"], row["checked_at"],
+                ])
+        print(f"wrote {len(rows)} rows to {args.csv}")
+        return 0
     print(f"{'product':<30} {'checked at':<22} {'price':>12}")
     print("-" * 66)
     for row in rows:
