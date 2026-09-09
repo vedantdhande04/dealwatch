@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from dealwatch import db
-from dealwatch.fetcher import fetch_price
+from dealwatch.fetcher import OutOfStockError, fetch_price
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "products.json.example"
 DEFAULT_TIMEOUT = 15
@@ -57,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     db_path = args.db or db.DEFAULT_DB
+    failures = 0
     for product in products:
         name = product.get("name", product["url"])
         if args.dry_run:
@@ -65,17 +66,22 @@ def main(argv: list[str] | None = None) -> int:
         timeout = args.timeout or product.get("timeout") or DEFAULT_TIMEOUT
         try:
             title, price = fetch_price(product["url"], timeout=timeout)
-            previous = db.last_price(product["url"], db_path=db_path)
-            if previous is not None and price < previous:
-                drop = (previous - price) / previous * 100
-                print(f"{name}: PRICE DROP — ₹{previous:,.0f} → ₹{price:,.0f} ({drop:.0f}% off)")
-            db.record_check(name, product["url"], title, price, db_path=db_path)
-            print(f"{name}: {title} — ₹{price:,.0f}")
+        except OutOfStockError as exc:
+            logger.info("%s is out of stock: %s", name, exc)
+            print(f"{name}: out of stock — {exc}")
+            continue
         except Exception as exc:  # noqa: BLE001 — report and move on
             logger.error("failed to fetch %s: %s", name, exc)
             print(f"{name}: error — {exc}")
-            return 1
-    return 0
+            failures += 1
+            continue
+        previous = db.last_price(product["url"], db_path=db_path)
+        if previous is not None and price < previous:
+            drop = (previous - price) / previous * 100
+            print(f"{name}: PRICE DROP — ₹{previous:,.0f} → ₹{price:,.0f} ({drop:.0f}% off)")
+        db.record_check(name, product["url"], title, price, db_path=db_path)
+        print(f"{name}: {title} — ₹{price:,.0f}")
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
