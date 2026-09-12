@@ -5,6 +5,7 @@
 # data
 *.db
 products.json
+config.json
 
 # python
 __pycache__/

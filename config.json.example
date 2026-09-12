@@ -1,0 +1,14 @@
+{
+  "timeout": 15,
+  "products": [
+    {
+      "name": "example product",
+      "url": "https://www.amazon.in/dp/B0EXAMPLE0",
+      "target": 19999
+    },
+    {
+      "name": "example flipkart product",
+      "url": "https://www.flipkart.com/example/p/itmexample"
+    }
+  ]
+}

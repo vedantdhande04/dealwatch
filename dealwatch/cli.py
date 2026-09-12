@@ -11,18 +11,48 @@ from pathlib import Path
 from dealwatch import db
 from dealwatch.fetcher import OutOfStockError, fetch_price
 
-DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "products.json.example"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TIMEOUT = 15
 
 logger = logging.getLogger("dealwatch.cli")
 
 
+def config_paths() -> tuple[Path, ...]:
+    """Where to look for the watched products, in order of preference."""
+    return (
+        Path("config.json"),
+        Path("products.json"),
+        _REPO_ROOT / "config.json.example",
+        _REPO_ROOT / "products.json.example",
+    )
+
+
+def read_config(path: Path) -> dict:
+    """Read a config file and normalise it to {"products": [...], "timeout": int|None}.
+
+    Both the new object form ({"timeout": .., "products": [..]}) and a bare
+    list of products are accepted.
+    """
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    if isinstance(data, list):
+        return {"products": data, "timeout": None}
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} should hold an object or a list of products")
+    return {"products": data.get("products") or [], "timeout": data.get("timeout")}
+
+
+def load_config() -> dict:
+    """Find the watched products: config.json, else products.json, else an example."""
+    for candidate in config_paths():
+        if candidate.exists():
+            logger.debug("using config %s", candidate)
+            return read_config(candidate)
+    raise FileNotFoundError("no config.json or products.json found")
+
+
 def load_products() -> list[dict]:
-    cfg = Path("products.json")
-    if not cfg.exists():
-        cfg = DEFAULT_CONFIG
-    with open(cfg, encoding="utf-8") as f:
-        return json.load(f)
+    return load_config()["products"]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -110,8 +140,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.url:
         products = [{"name": args.name or args.url, "url": args.url}]
+        config_timeout = None
     else:
-        products = load_products()
+        config = load_config()
+        products = config["products"]
+        config_timeout = config["timeout"]
         if not products:
             logger.warning("no products in config")
             print("no products in config")
@@ -124,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.dry_run:
             print(f"{name}: would check {product['url']}")
             continue
-        timeout = args.timeout or product.get("timeout") or DEFAULT_TIMEOUT
+        timeout = args.timeout or product.get("timeout") or config_timeout or DEFAULT_TIMEOUT
         try:
             title, price = fetch_price(product["url"], timeout=timeout)
         except OutOfStockError as exc:
