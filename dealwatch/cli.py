@@ -27,6 +27,21 @@ def config_paths() -> tuple[Path, ...]:
     )
 
 
+def dedupe_products(products: list[dict]) -> list[dict]:
+    """Drop extra copies of a url, keeping the first entry as it appears."""
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for product in products:
+        url = str(product.get("url", "")).strip()
+        if url and url in seen:
+            logger.warning("skipping duplicate url in config: %s", url)
+            continue
+        if url:
+            seen.add(url)
+        unique.append(product)
+    return unique
+
+
 def read_config(path: Path) -> dict:
     """Read a config file and normalise it to {"products": [...], "timeout": int|None}.
 
@@ -36,10 +51,11 @@ def read_config(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     if isinstance(data, list):
-        return {"products": data, "timeout": None}
+        return {"products": dedupe_products(data), "timeout": None}
     if not isinstance(data, dict):
         raise ValueError(f"{path} should hold an object or a list of products")
-    return {"products": data.get("products") or [], "timeout": data.get("timeout")}
+    products = data.get("products") or []
+    return {"products": dedupe_products(products), "timeout": data.get("timeout")}
 
 
 def load_config() -> dict:
