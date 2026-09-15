@@ -95,6 +95,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="product name to store for the --url check (default: the url)",
     )
     parser.add_argument(
+        "--target", type=float, default=None,
+        help="alert when a price drops to this value or below "
+             "(overrides the target in the config)",
+    )
+    parser.add_argument(
         "--verbose", action="store_true", help="enable debug logging"
     )
 
@@ -212,8 +217,10 @@ def main(argv: list[str] | None = None) -> int:
     failures = 0
     for product in products:
         name = product.get("name", product["url"])
+        target = args.target if args.target is not None else product.get("target")
         if args.dry_run:
-            print(f"{name}: would check {product['url']}")
+            note = f" (alert at ₹{target:,.0f})" if target else ""
+            print(f"{name}: would check {product['url']}{note}")
             continue
         timeout = args.timeout or product.get("timeout") or config_timeout or DEFAULT_TIMEOUT
         try:
@@ -231,6 +238,8 @@ def main(argv: list[str] | None = None) -> int:
         if previous is not None and price < previous:
             drop = (previous - price) / previous * 100
             print(f"{name}: PRICE DROP — ₹{previous:,.0f} → ₹{price:,.0f} ({drop:.0f}% off)")
+        if target and price <= target:
+            print(f"{name}: TARGET HIT — ₹{price:,.0f} is at or below ₹{target:,.0f}")
         db.record_check(name, product["url"], title, price, db_path=db_path)
         print(f"{name}: {title} — ₹{price:,.0f}")
     return 1 if failures else 0
