@@ -20,13 +20,13 @@
 - [x] add tests for the amazon price parser
 - [x] add tests for the flipkart price parser
 - [x] handle out-of-stock pages without crashing
-- [ ] add a .env.example with TELEGRAM_BOT_TOKEN
-- [ ] add a max-retries guard to avoid getting blocked
+- [x] add a .env.example with TELEGRAM_BOT_TOKEN
+- [x] add a max-retries guard to avoid getting blocked
 - [x] make fetch timeout configurable
 - [x] add a CSV export of price history
 - [x] add basic logging setup
 - [ ] add a --once flag for a single check run
-- [ ] add a --add <url> <name> command to the CLI
+- [x] add a --add <url> <name> command to the CLI
 - [x] dedupe duplicate URLs in the config
 - [ ] add a README section with setup steps
-- [ ] add a --target flag to alert when price crosses it
+- [x] add a --target flag to alert when price crosses it
