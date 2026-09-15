@@ -13,6 +13,7 @@ from dealwatch.fetcher import OutOfStockError, fetch_price
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TIMEOUT = 15
+DEFAULT_CONFIG = Path("config.json")
 
 logger = logging.getLogger("dealwatch.cli")
 
@@ -114,6 +115,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--db", type=Path, default=argparse.SUPPRESS,
         help="sqlite db path (default: dealwatch.db next to the package)",
     )
+
+    add = sub.add_parser("add", help="add a product url to the config")
+    add.add_argument("url", help="product url")
+    add.add_argument(
+        "name", nargs="?", default=None,
+        help="friendly name (default: the url itself)",
+    )
+    add.add_argument(
+        "--target", type=float, default=None,
+        help="alert when the price drops to this value",
+    )
+    add.add_argument(
+        "--config", type=Path, default=DEFAULT_CONFIG,
+        help="config file to write (default: config.json)",
+    )
     return parser
 
 
@@ -144,6 +160,29 @@ def run_history(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_add(args: argparse.Namespace) -> int:
+    """Append a product to the config file, skipping urls already watched."""
+    path = Path(args.config)
+    if path.exists():
+        config = read_config(path)
+    else:
+        config = {"products": [], "timeout": None}
+    products = config["products"]
+    url = args.url.strip()
+    if any(str(p.get("url", "")).strip() == url for p in products):
+        print(f"{url} is already in {path}")
+        return 1
+    entry: dict = {"name": args.name or url, "url": url}
+    if args.target is not None:
+        entry["target"] = args.target
+    products.append(entry)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"timeout": config["timeout"], "products": products}, f, indent=2)
+        f.write("\n")
+    print(f"added {entry['name']} to {path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(
@@ -153,6 +192,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "history":
         return run_history(args)
+
+    if args.command == "add":
+        return run_add(args)
 
     if args.url:
         products = [{"name": args.name or args.url, "url": args.url}]
