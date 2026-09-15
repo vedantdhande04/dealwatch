@@ -45,8 +45,16 @@ _FK_PRICE = re.compile(
 )
 
 
+# statuses that mean "stop hammering us", retrying only makes it worse
+_BLOCKED_STATUS = (403, 429)
+
+
 class OutOfStockError(Exception):
     """The page loaded but the item is not available to buy right now."""
+
+
+class BlockedError(Exception):
+    """The site refused us (403/429) — bail out instead of retrying."""
 
 
 class PriceNotFoundError(ValueError):
@@ -64,13 +72,34 @@ def _clean(text: str) -> str:
 
 
 def _get_with_retry(url: str, timeout: int) -> requests.Response:
-    """GET a page, retrying transient failures with exponential backoff."""
+    """GET a page, retrying transient failures with exponential backoff.
+
+    A 403/429 means the site is blocking us, so we stop right there
+    instead of burning the retry budget and getting the ip banned.
+    """
     last_error: Exception | None = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             resp = requests.get(url, headers=_headers(), timeout=timeout)
             resp.raise_for_status()
             return resp
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status in _BLOCKED_STATUS:
+                logger.warning(
+                    "%s returned %s — looks like a block, not retrying", url, status
+                )
+                raise BlockedError(
+                    f"site returned {status}, backing off this url"
+                ) from exc
+            last_error = exc
+            if attempt < MAX_RETRIES:
+                wait = BACKOFF_SECONDS * (2 ** (attempt - 1))
+                logger.warning(
+                    "request failed (%s), retrying in %.1fs (attempt %d/%d)",
+                    exc, wait, attempt, MAX_RETRIES,
+                )
+                time.sleep(wait)
         except requests.RequestException as exc:
             last_error = exc
             if attempt < MAX_RETRIES:
