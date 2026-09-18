@@ -10,13 +10,13 @@
 - [x] rotate a small set of user-agent headers
 - [x] add a --dry-run flag
 - [x] print a price history table for a product
-- [ ] generate a simple HTML price chart from history
+- [x] generate a simple HTML price chart from history
 - [ ] telegram bot: /start and /add <url> <target>
 - [ ] telegram bot: alert message when a target price is hit
 - [ ] telegram bot: /status lists watched products
 - [ ] telegram bot: /remove <id> removes a product
 - [ ] telegram bot: /history shows price history for a product
-- [ ] schedule checks with a simple loop, no cron needed
+- [x] schedule checks with a simple loop, no cron needed
 - [x] add tests for the amazon price parser
 - [x] add tests for the flipkart price parser
 - [x] handle out-of-stock pages without crashing
@@ -25,8 +25,8 @@
 - [x] make fetch timeout configurable
 - [x] add a CSV export of price history
 - [x] add basic logging setup
-- [ ] add a --once flag for a single check run
+- [x] add a --once flag for a single check run
 - [x] add a --add <url> <name> command to the CLI
 - [x] dedupe duplicate URLs in the config
-- [ ] add a README section with setup steps
+- [x] add a README section with setup steps
 - [x] add a --target flag to alert when price crosses it
