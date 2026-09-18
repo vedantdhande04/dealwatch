@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from dealwatch import db
+from dealwatch import chart, db
 from dealwatch.fetcher import OutOfStockError, fetch_price
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -137,6 +137,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="config file to write (default: config.json)",
     )
 
+    chart = sub.add_parser(
+        "chart", help="write an html price chart for a product"
+    )
+    chart.add_argument("product", help="product name or url fragment to look up")
+    chart.add_argument(
+        "--limit", type=int, default=90,
+        help="max checks to chart (default: 90)",
+    )
+    chart.add_argument(
+        "--out", type=Path, default=None,
+        help="html file to write (default: <product>-price-chart.html)",
+    )
+    chart.add_argument(
+        "--db", type=Path, default=argparse.SUPPRESS,
+        help="sqlite db path (default: dealwatch.db next to the package)",
+    )
+
     watch = sub.add_parser(
         "watch", help="keep checking the watched products on a loop"
     )
@@ -251,6 +268,20 @@ def run_check(args: argparse.Namespace) -> int:
     return failures
 
 
+def run_chart(args: argparse.Namespace) -> int:
+    """Write an html chart of a product's stored prices."""
+    db_path = args.db or db.DEFAULT_DB
+    rows = db.history(args.product, db_path=db_path, limit=args.limit)
+    if not rows:
+        print(f"no price history found for {args.product!r}")
+        return 1
+    label = rows[-1]["product"] or args.product
+    out = args.out or Path(f"{chart.slugify(label)}-price-chart.html")
+    out.write_text(chart.render_html(label, rows), encoding="utf-8")
+    print(f"wrote a chart for {len(rows)} checks to {out}")
+    return 0
+
+
 def run_watch(args: argparse.Namespace) -> int:
     """Check the products over and over, sleeping --every minutes between rounds."""
     every = max(1, args.every)
@@ -282,6 +313,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "add":
         return run_add(args)
+
+    if args.command == "chart":
+        return run_chart(args)
 
     if args.command == "watch":
         try:

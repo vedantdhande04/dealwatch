@@ -8,6 +8,9 @@
 products.json
 config.json
 
+# generated
+*-price-chart.html
+
 # python
 __pycache__/
 *.pyc
