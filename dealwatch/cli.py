@@ -5,6 +5,7 @@ import csv
 import json
 import logging
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -135,6 +136,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--config", type=Path, default=DEFAULT_CONFIG,
         help="config file to write (default: config.json)",
     )
+
+    watch = sub.add_parser(
+        "watch", help="keep checking the watched products on a loop"
+    )
+    watch.add_argument(
+        "--every", type=int, default=30,
+        help="minutes to wait between checks (default: 30)",
+    )
+    watch.add_argument(
+        "--db", type=Path, default=argparse.SUPPRESS,
+        help="sqlite db path (default: dealwatch.db next to the package)",
+    )
     return parser
 
 
@@ -188,19 +201,8 @@ def run_add(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
-
-    if args.command == "history":
-        return run_history(args)
-
-    if args.command == "add":
-        return run_add(args)
-
+def run_check(args: argparse.Namespace) -> int:
+    """Check every watched product once. Returns the number of failed fetches."""
     if args.url:
         products = [{"name": args.name or args.url, "url": args.url}]
         config_timeout = None
@@ -242,7 +244,46 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{name}: TARGET HIT — ₹{price:,.0f} is at or below ₹{target:,.0f}")
         db.record_check(name, product["url"], title, price, db_path=db_path)
         print(f"{name}: {title} — ₹{price:,.0f}")
-    return 1 if failures else 0
+    return failures
+
+
+def run_watch(args: argparse.Namespace) -> int:
+    """Check the products over and over, sleeping --every minutes between rounds."""
+    every = max(1, args.every)
+    rounds = 0
+    while True:
+        rounds += 1
+        logger.info("starting check round %d", rounds)
+        run_check(args)
+        print(f"round {rounds} done — next check in {every} min (ctrl-c to stop)")
+        try:
+            time.sleep(every * 60)
+        except KeyboardInterrupt:
+            print("stopped watching")
+            return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+
+    if args.command == "history":
+        return run_history(args)
+
+    if args.command == "add":
+        return run_add(args)
+
+    if args.command == "watch":
+        try:
+            return run_watch(args)
+        except KeyboardInterrupt:
+            print("stopped watching")
+            return 0
+
+    return 1 if run_check(args) else 0
 
 
 if __name__ == "__main__":
