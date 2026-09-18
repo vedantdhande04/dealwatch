@@ -145,6 +145,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="minutes to wait between checks (default: 30)",
     )
     watch.add_argument(
+        "--once", action="store_true",
+        help="do a single check round and exit instead of looping",
+    )
+    watch.add_argument(
         "--db", type=Path, default=argparse.SUPPRESS,
         help="sqlite db path (default: dealwatch.db next to the package)",
     )
@@ -255,6 +259,9 @@ def run_watch(args: argparse.Namespace) -> int:
         rounds += 1
         logger.info("starting check round %d", rounds)
         run_check(args)
+        if getattr(args, "once", False):
+            logger.info("--once given, exiting after round %d", rounds)
+            return 0
         print(f"round {rounds} done — next check in {every} min (ctrl-c to stop)")
         try:
             time.sleep(every * 60)
