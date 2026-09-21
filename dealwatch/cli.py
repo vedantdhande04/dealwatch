@@ -242,8 +242,12 @@ def run_add(args: argparse.Namespace) -> int:
     return 0
 
 
-def run_check(args: argparse.Namespace) -> int:
-    """Check every watched product once. Returns the number of failed fetches."""
+def run_check(args: argparse.Namespace, notify=None) -> int:
+    """Check every watched product once. Returns the number of failed fetches.
+
+    `notify` is an optional callable (name, price, target) used to shout about
+    a target hit somewhere else, e.g. a telegram message.
+    """
     if args.url:
         products = [{"name": args.name or args.url, "url": args.url}]
         config_timeout = None
@@ -283,6 +287,11 @@ def run_check(args: argparse.Namespace) -> int:
             print(f"{name}: PRICE DROP — ₹{previous:,.0f} → ₹{price:,.0f} ({drop:.0f}% off)")
         if target and price <= target:
             print(f"{name}: TARGET HIT — ₹{price:,.0f} is at or below ₹{target:,.0f}")
+            if notify is not None:
+                try:
+                    notify(name, price, target)
+                except Exception as exc:  # noqa: BLE001 — a failed alert is not fatal
+                    logger.error("alert failed for %s: %s", name, exc)
         db.record_check(name, product["url"], title, price, db_path=db_path)
         print(f"{name}: {title} — ₹{price:,.0f}")
     return failures

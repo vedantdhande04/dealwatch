@@ -196,13 +196,25 @@ class DealWatchBot:
         return len(updates)
 
     def check_round(self) -> None:
-        """Run one round of the normal price check."""
+        """Run one round of the normal price check, alerting on target hits."""
         args = cli.build_parser().parse_args([])
         args.db = self.db_path
         try:
-            cli.run_check(args)
+            cli.run_check(args, notify=self.send_alert)
         except FileNotFoundError as exc:
             logger.warning("nothing to check: %s", exc)
+
+    def send_alert(self, name, price: float, target: float) -> None:
+        """Push a target hit to the chat, if we know which chat to use."""
+        if not self.chat_id:
+            logger.warning("no TELEGRAM_CHAT_ID, skipping alert for %s", name)
+            return
+        self.client.send_message(
+            self.chat_id,
+            f"price alert\n{name}\nnow ₹{price:,.0f} — at or below your "
+            f"₹{target:,.0f} target",
+        )
+        logger.info("alerted about %s at ₹%.0f", name, price)
 
     def run(self, once: bool = False) -> int:
         logger.info("bot up, checking every %d min", self.every)
