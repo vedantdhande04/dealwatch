@@ -169,6 +169,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--db", type=Path, default=argparse.SUPPRESS,
         help="sqlite db path (default: dealwatch.db next to the package)",
     )
+
+    bot = sub.add_parser(
+        "bot", help="run the telegram bot (needs TELEGRAM_BOT_TOKEN)"
+    )
+    bot.add_argument(
+        "--config", type=Path, default=DEFAULT_CONFIG,
+        help="config file to read and write (default: config.json)",
+    )
+    bot.add_argument(
+        "--every", type=int, default=30,
+        help="minutes between check rounds (default: 30)",
+    )
+    bot.add_argument(
+        "--once", action="store_true",
+        help="answer pending commands and check once, then exit",
+    )
+    bot.add_argument(
+        "--db", type=Path, default=argparse.SUPPRESS,
+        help="sqlite db path (default: dealwatch.db next to the package)",
+    )
     return parser
 
 
@@ -322,6 +342,20 @@ def main(argv: list[str] | None = None) -> int:
             return run_watch(args)
         except KeyboardInterrupt:
             print("stopped watching")
+            return 0
+
+    if args.command == "bot":
+        from dealwatch import telegram  # imported here so the cli stays light
+
+        try:
+            return telegram.run_bot(
+                config_path=args.config,
+                db_path=args.db or db.DEFAULT_DB,
+                every=args.every,
+                once=args.once,
+            )
+        except KeyboardInterrupt:
+            print("bot stopped")
             return 0
 
     return 1 if run_check(args) else 0
