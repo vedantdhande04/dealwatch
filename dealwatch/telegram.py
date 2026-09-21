@@ -26,6 +26,7 @@ HELP_TEXT = (
     "/start — show this help\n"
     "/add <url> [target] — start watching a product\n"
     "/status — list the watched products\n"
+    "/remove <id> — stop watching a product\n"
 )
 
 
@@ -179,6 +180,22 @@ class DealWatchBot:
             lines.append(line)
         return "\n".join(lines)
 
+    def cmd_remove(self, args: list[str]) -> str:
+        """Drop a product from the config, using the id from /status."""
+        if not args:
+            return "usage: /remove <id>"
+        raw = args[0].lstrip("#")
+        if not raw.isdigit():
+            return f"{args[0]!r} isn't an id, check /status"
+        index = int(raw)
+        config = self.load_config()
+        products = config["products"]
+        if index < 1 or index > len(products):
+            return f"no product #{index}, check /status"
+        removed = products.pop(index - 1)
+        self.save_config(config)
+        return f"removed #{index} {removed.get('name') or removed.get('url', '')}"
+
     def handle(self, text: str, chat_id=None) -> str:
         """Turn one incoming message into a reply."""
         parts = (text or "").strip().split()
@@ -192,6 +209,8 @@ class DealWatchBot:
             return self.cmd_add(args)
         if command == "/status":
             return self.cmd_status(args)
+        if command == "/remove":
+            return self.cmd_remove(args)
         return f"don't know {command}\n\n{HELP_TEXT}"
 
     # loop -------------------------------------------------------------------
