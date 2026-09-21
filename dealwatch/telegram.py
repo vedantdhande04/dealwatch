@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -27,6 +28,7 @@ HELP_TEXT = (
     "/add <url> [target] — start watching a product\n"
     "/status — list the watched products\n"
     "/remove <id> — stop watching a product\n"
+    "/history <id> — recent prices for a product\n"
 )
 
 
@@ -196,6 +198,27 @@ class DealWatchBot:
         self.save_config(config)
         return f"removed #{index} {removed.get('name') or removed.get('url', '')}"
 
+    def cmd_history(self, args: list[str]) -> str:
+        """Show the last few stored prices for a product id or name."""
+        if not args:
+            return "usage: /history <id or name>"
+        term = args[0]
+        raw = term.lstrip("#")
+        if raw.isdigit():
+            index = int(raw)
+            products = self.load_products()
+            if index < 1 or index > len(products):
+                return f"no product #{index}, check /status"
+            term = str(products[index - 1].get("url", ""))
+        rows = db.history(term, db_path=self.db_path, limit=10)
+        if not rows:
+            return f"no price history for {args[0]} yet"
+        lines = [f"last {len(rows)} check(s):"]
+        for row in rows:
+            when = datetime.fromisoformat(row["checked_at"]).astimezone()
+            lines.append(f"{when.strftime('%d %b %H:%M')} — ₹{row['price']:,.0f}")
+        return "\n".join(lines)
+
     def handle(self, text: str, chat_id=None) -> str:
         """Turn one incoming message into a reply."""
         parts = (text or "").strip().split()
@@ -211,6 +234,8 @@ class DealWatchBot:
             return self.cmd_status(args)
         if command == "/remove":
             return self.cmd_remove(args)
+        if command == "/history":
+            return self.cmd_history(args)
         return f"don't know {command}\n\n{HELP_TEXT}"
 
     # loop -------------------------------------------------------------------
