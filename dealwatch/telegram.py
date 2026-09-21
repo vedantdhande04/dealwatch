@@ -25,6 +25,7 @@ HELP_TEXT = (
     "\n"
     "/start — show this help\n"
     "/add <url> [target] — start watching a product\n"
+    "/status — list the watched products\n"
 )
 
 
@@ -160,6 +161,24 @@ class DealWatchBot:
         note = f", alert below ₹{target:,.0f}" if target is not None else ""
         return f"added #{len(products)}{note}\n{url}"
 
+    def cmd_status(self, args: list[str] | None = None) -> str:
+        """List the watched products with whatever price we last saw."""
+        products = self.load_products()
+        if not products:
+            return "nothing watched yet, try /add <url> [target]"
+        lines = [f"watching {len(products)} product(s):"]
+        for index, product in enumerate(products, start=1):
+            url = str(product.get("url", ""))
+            last = db.last_price(url, db_path=self.db_path)
+            line = f"#{index} {product.get('name') or url}"
+            if product.get("name") and product.get("name") != url:
+                line += f"\n    {url}"
+            line += f"\n    {'₹' + format(last, ',.0f') if last is not None else 'no price yet'}"
+            if product.get("target"):
+                line += f" (target ₹{product['target']:,.0f})"
+            lines.append(line)
+        return "\n".join(lines)
+
     def handle(self, text: str, chat_id=None) -> str:
         """Turn one incoming message into a reply."""
         parts = (text or "").strip().split()
@@ -171,6 +190,8 @@ class DealWatchBot:
             return self.cmd_start()
         if command == "/add":
             return self.cmd_add(args)
+        if command == "/status":
+            return self.cmd_status(args)
         return f"don't know {command}\n\n{HELP_TEXT}"
 
     # loop -------------------------------------------------------------------
