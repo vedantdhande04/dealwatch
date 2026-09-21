@@ -47,9 +47,12 @@ python -m dealwatch.cli history "sony" --csv history.csv # ...or as csv
 python -m dealwatch.cli chart "sony" --out sony.html      # html price chart
 python -m dealwatch.cli watch --every 30      # loop every 30 min, no cron needed
 python -m dealwatch.cli watch --once          # a single round of the loop
+python -m dealwatch.cli bot --every 30        # telegram bot: /add, /status, /remove, /history
 ```
 
 Useful flags: `--db <path>` to point at another sqlite file, `--timeout <sec>` to override the config, `--verbose` for debug logs.
+
+The bot reads `TELEGRAM_BOT_TOKEN` from the environment, and `TELEGRAM_CHAT_ID` if you want alerts in a specific chat (it is remembered from the first message otherwise).
 
 Top-level flags go before the command, e.g. `python -m dealwatch.cli --verbose watch --every 60`.
 
