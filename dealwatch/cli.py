@@ -154,6 +154,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="sqlite db path (default: dealwatch.db next to the package)",
     )
 
+    stats = sub.add_parser(
+        "stats", help="show the low, high and average price for a product"
+    )
+    stats.add_argument("product", help="product name or url fragment to look up")
+    stats.add_argument(
+        "--limit", type=int, default=200,
+        help="max checks to look at (default: 200)",
+    )
+    stats.add_argument(
+        "--db", type=Path, default=argparse.SUPPRESS,
+        help="sqlite db path (default: dealwatch.db next to the package)",
+    )
+
     chart = sub.add_parser(
         "chart", help="write an html price chart for a product"
     )
@@ -332,6 +345,28 @@ def run_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_stats(args: argparse.Namespace) -> int:
+    """Print the low, high and average price a product has been checked at."""
+    db_path = args.db or db.DEFAULT_DB
+    rows = db.history(args.product, db_path=db_path, limit=args.limit)
+    if not rows:
+        print(f"no price history found for {args.product!r}")
+        return 1
+    prices = [row["price"] for row in rows]
+    lowest = min(rows, key=lambda row: row["price"])
+    highest = max(rows, key=lambda row: row["price"])
+    label = rows[-1]["product"] or args.product
+    print(f"{label}: {len(prices)} checks")
+    print(f"lowest   ₹{lowest['price']:,.0f}  ({_stamp(lowest['checked_at'])})")
+    print(f"highest  ₹{highest['price']:,.0f}  ({_stamp(highest['checked_at'])})")
+    print(f"average  ₹{sum(prices) / len(prices):,.0f}")
+    print(f"latest   ₹{prices[-1]:,.0f}  ({_stamp(rows[-1]['checked_at'])})")
+    if highest["price"] > 0:
+        off = (highest["price"] - lowest["price"]) / highest["price"] * 100
+        print(f"swing    down {off:.0f}% from the highest")
+    return 0
+
+
 def run_chart(args: argparse.Namespace) -> int:
     """Write an html chart of a product's stored prices."""
     db_path = args.db or db.DEFAULT_DB
@@ -380,6 +415,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "list":
         return run_list(args)
+
+    if args.command == "stats":
+        return run_stats(args)
 
     if args.command == "chart":
         return run_chart(args)
