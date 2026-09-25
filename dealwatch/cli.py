@@ -110,6 +110,10 @@ def build_parser() -> argparse.ArgumentParser:
              "(overrides the target in the config)",
     )
     parser.add_argument(
+        "--json", action="store_true",
+        help="print the check results as json",
+    )
+    parser.add_argument(
         "--verbose", action="store_true", help="enable debug logging"
     )
 
@@ -277,6 +281,10 @@ def run_check(args: argparse.Namespace, notify=None) -> int:
     `notify` is an optional callable (name, price, target) used to shout about
     a target hit somewhere else, e.g. a telegram message.
     """
+    json_out = getattr(args, "json", False)
+    # json mode collects the results instead of printing per-product lines
+    say = (lambda *a, **k: None) if json_out else print
+
     if args.url:
         products = [{"name": args.name or args.url, "url": args.url}]
         config_timeout = None
@@ -286,43 +294,70 @@ def run_check(args: argparse.Namespace, notify=None) -> int:
         config_timeout = config["timeout"]
         if not products:
             logger.warning("no products in config")
-            print("no products in config")
+            print("[]" if json_out else "no products in config")
             return 1
 
     db_path = args.db or db.DEFAULT_DB
+    results: list[dict] = []
     failures = 0
     for product in products:
         name = product.get("name", product["url"])
         target = args.target if args.target is not None else product.get("target")
         if args.dry_run:
             note = f" (alert at ₹{target:,.0f})" if target else ""
-            print(f"{name}: would check {product['url']}{note}")
+            say(f"{name}: would check {product['url']}{note}")
+            if json_out:
+                results.append({
+                    "name": name, "url": product["url"],
+                    "status": "dry-run", "target": target,
+                })
             continue
         timeout = args.timeout or product.get("timeout") or config_timeout or DEFAULT_TIMEOUT
         try:
             title, price = fetch_price(product["url"], timeout=timeout)
         except OutOfStockError as exc:
             logger.info("%s is out of stock: %s", name, exc)
-            print(f"{name}: out of stock — {exc}")
+            say(f"{name}: out of stock — {exc}")
+            if json_out:
+                results.append({
+                    "name": name, "url": product["url"],
+                    "status": "out-of-stock", "error": str(exc),
+                })
             continue
         except Exception as exc:  # noqa: BLE001 — report and move on
             logger.error("failed to fetch %s: %s", name, exc)
-            print(f"{name}: error — {exc}")
+            say(f"{name}: error — {exc}")
+            if json_out:
+                results.append({
+                    "name": name, "url": product["url"],
+                    "status": "error", "error": str(exc),
+                })
             failures += 1
             continue
         previous = db.last_price(product["url"], db_path=db_path)
+        drop = None
         if previous is not None and price < previous:
             drop = (previous - price) / previous * 100
-            print(f"{name}: PRICE DROP — ₹{previous:,.0f} → ₹{price:,.0f} ({drop:.0f}% off)")
-        if target and price <= target:
-            print(f"{name}: TARGET HIT — ₹{price:,.0f} is at or below ₹{target:,.0f}")
+            say(f"{name}: PRICE DROP — ₹{previous:,.0f} → ₹{price:,.0f} ({drop:.0f}% off)")
+        hit = bool(target and price <= target)
+        if hit:
+            say(f"{name}: TARGET HIT — ₹{price:,.0f} is at or below ₹{target:,.0f}")
             if notify is not None:
                 try:
                     notify(name, price, target)
                 except Exception as exc:  # noqa: BLE001 — a failed alert is not fatal
                     logger.error("alert failed for %s: %s", name, exc)
         db.record_check(name, product["url"], title, price, db_path=db_path)
-        print(f"{name}: {title} — ₹{price:,.0f}")
+        say(f"{name}: {title} — ₹{price:,.0f}")
+        if json_out:
+            results.append({
+                "name": name, "url": product["url"], "status": "ok",
+                "title": title, "price": price, "previous": previous,
+                "drop_pct": round(drop, 2) if drop is not None else None,
+                "target": target, "target_hit": hit,
+            })
+    if json_out:
+        print(json.dumps(results, indent=2))
     return failures
 
 
