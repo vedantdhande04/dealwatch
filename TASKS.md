@@ -30,3 +30,6 @@
 - [x] dedupe duplicate URLs in the config
 - [x] add a README section with setup steps
 - [x] add a --target flag to alert when price crosses it
+- [x] add a list command that shows the watched products
+- [x] add a stats command with min/max/avg price
+- [x] add a --json flag for machine readable check output
