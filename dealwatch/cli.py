@@ -19,6 +19,15 @@ DEFAULT_CONFIG = Path("config.json")
 logger = logging.getLogger("dealwatch.cli")
 
 
+def _stamp(checked_at: str) -> str:
+    """Format a stored utc timestamp in the local timezone."""
+    try:
+        when = datetime.fromisoformat(checked_at).astimezone()
+    except ValueError:
+        return checked_at
+    return when.strftime("%Y-%m-%d %H:%M")
+
+
 def config_paths() -> tuple[Path, ...]:
     """Where to look for the watched products, in order of preference."""
     return (
@@ -137,6 +146,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="config file to write (default: config.json)",
     )
 
+    listing = sub.add_parser(
+        "list", help="list the watched products from the config"
+    )
+    listing.add_argument(
+        "--db", type=Path, default=argparse.SUPPRESS,
+        help="sqlite db path (default: dealwatch.db next to the package)",
+    )
+
     chart = sub.add_parser(
         "chart", help="write an html price chart for a product"
     )
@@ -213,8 +230,7 @@ def run_history(args: argparse.Namespace) -> int:
     print(f"{'product':<30} {'checked at':<22} {'price':>12}")
     print("-" * 66)
     for row in rows:
-        when = datetime.fromisoformat(row["checked_at"]).astimezone()
-        stamp = when.strftime("%Y-%m-%d %H:%M")
+        stamp = _stamp(row["checked_at"])
         print(f"{row['product'][:29]:<30} {stamp:<22} {'₹' + format(row['price'], ',.0f'):>12}")
     return 0
 
@@ -297,6 +313,25 @@ def run_check(args: argparse.Namespace, notify=None) -> int:
     return failures
 
 
+def run_list(args: argparse.Namespace) -> int:
+    """Print the watched products and their last stored price, no fetching."""
+    products = load_config()["products"]
+    if not products:
+        print("no products in config")
+        return 1
+    db_path = args.db or db.DEFAULT_DB
+    print(f"{'name':<34} {'target':>10} {'last seen':>12}")
+    print("-" * 60)
+    for product in products:
+        name = str(product.get("name") or product["url"])
+        target = product.get("target")
+        target_text = f"₹{target:,.0f}" if target else "-"
+        last = db.last_price(product["url"], db_path=db_path)
+        price_text = f"₹{last:,.0f}" if last is not None else "-"
+        print(f"{name[:33]:<34} {target_text:>10} {price_text:>12}")
+    return 0
+
+
 def run_chart(args: argparse.Namespace) -> int:
     """Write an html chart of a product's stored prices."""
     db_path = args.db or db.DEFAULT_DB
@@ -342,6 +377,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "add":
         return run_add(args)
+
+    if args.command == "list":
+        return run_list(args)
 
     if args.command == "chart":
         return run_chart(args)
